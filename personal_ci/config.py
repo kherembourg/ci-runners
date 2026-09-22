@@ -33,7 +33,8 @@ class Config:
 
     @classmethod
     def load(cls, path):
-        data = json.loads(Path(path).read_text())
+        config_path = Path(path).resolve()
+        data = json.loads(config_path.read_text())
         owner = data["owner"]
         repositories = tuple(data["repositories"])
         if not NAME.fullmatch(owner) or not repositories or len(set(repositories)) != len(repositories):
@@ -54,13 +55,15 @@ class Config:
             raise ValueError("poll_seconds must be between 10 and 3600")
         if data["minimum_free_disk_gb"] < 20:
             raise ValueError("minimum_free_disk_gb must be at least 20")
-        token_file = Path(data["token_file"]).expanduser()
-        state_dir = Path(data["state_dir"]).expanduser()
-        tart_bin = Path(data["tart_bin"]).expanduser()
+        token_file = Path(data["token_file"]).expanduser().resolve()
+        state_dir = Path(data["state_dir"]).expanduser().resolve()
+        tart_bin = Path(data["tart_bin"]).expanduser().resolve()
         if not all(path.is_absolute() for path in (token_file, state_dir, tart_bin)):
             raise ValueError("token_file, state_dir, and tart_bin must be absolute")
         if token_file == state_dir or state_dir in token_file.parents:
             raise ValueError("credential must be outside runtime state")
+        if config_path.parent in token_file.parents:
+            raise ValueError("credential must be outside the repository checkout")
         return cls(owner, repositories, token_file, state_dir, tart_bin,
                    data["poll_seconds"], data["max_vms"], data["cpu_per_vm"],
                    data["memory_mb_per_vm"], data["minimum_free_disk_gb"], lanes)

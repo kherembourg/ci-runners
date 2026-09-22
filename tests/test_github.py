@@ -4,6 +4,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import Mock
 
 from personal_ci.config import Config, Lane
 from personal_ci.github import GitHubClient, HttpTransport, Job, read_token
@@ -55,6 +56,11 @@ class GitHubTests(unittest.TestCase):
             path.chmod(0o600)
             self.assertEqual(read_token(path), "example")
 
+    def test_job_status_rejects_other_repositories(self):
+        client = GitHubClient("kHerembourg", ["demo"], self.lanes, Mock())
+        with self.assertRaises(ValueError):
+            client.job_status("work-repo", 123)
+
     def test_example_config_has_exact_budget(self):
         path = Path(__file__).resolve().parents[1] / "config.example.json"
         config = Config.load(path)
@@ -66,6 +72,16 @@ class GitHubTests(unittest.TestCase):
             changed.write_text(json.dumps(data))
             with self.assertRaises(ValueError):
                 Config.load(changed)
+
+    def test_config_rejects_credential_in_checkout(self):
+        path = Path(__file__).resolve().parents[1] / "config.example.json"
+        data = json.loads(path.read_text())
+        with tempfile.TemporaryDirectory() as directory:
+            config_path = Path(directory) / "config.json"
+            data["token_file"] = str(Path(directory) / "token")
+            config_path.write_text(json.dumps(data))
+            with self.assertRaisesRegex(ValueError, "outside the repository"):
+                Config.load(config_path)
 
 
 if __name__ == "__main__":

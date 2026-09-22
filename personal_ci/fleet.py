@@ -43,8 +43,33 @@ class Fleet:
                 self.state.remove(job_id)
             del self.futures[job_id]
 
+    def reconcile(self):
+        """Reclaim only known clones whose GitHub job is terminal."""
+        for job_id, entry in list(self.state.entries.items()):
+            if not job_id.isdecimal() or not isinstance(entry, dict):
+                logging.error("invalid ownership ledger entry %s; leaving untouched", job_id)
+                continue
+            numeric_job_id = int(job_id)
+            if numeric_job_id in self.futures:
+                continue
+            expected_prefix = "personal-ci-{}-{}-".format(entry.get("lane"), job_id)
+            name = entry.get("vm", "")
+            if not name.startswith(expected_prefix) or entry.get("repo") not in self.config.repositories:
+                logging.error("invalid ownership ledger entry %s; leaving untouched", job_id)
+                continue
+            try:
+                if not self.provider.exists(name):
+                    self.state.remove(job_id)
+                    continue
+                if self.github.job_status(entry["repo"], numeric_job_id) == "completed":
+                    self.provider.stop_delete(name)
+                    self.state.remove(job_id)
+            except Exception as error:
+                logging.error("could not reconcile job %s: %s", job_id, error)
+
     def tick(self):
         self.reap()
+        self.reconcile()
         if not self._free_disk():
             logging.warning("free disk below configured minimum; admission paused")
             return 0

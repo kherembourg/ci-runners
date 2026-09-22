@@ -18,7 +18,7 @@ from .tart import TartProvider
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="personal-ci")
     parser.add_argument("--config", default="config.json")
-    parser.add_argument("command", choices=("doctor", "status", "once", "serve"))
+    parser.add_argument("command", choices=("doctor", "status", "reconcile", "once", "serve"))
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     config = Config.load(args.config)
@@ -45,6 +45,10 @@ def main(argv=None):
     github = GitHubClient(config.owner, config.repositories, config.lanes,
                           HttpTransport(read_token(config.token_file)))
     fleet = Fleet(config, github, provider, state)
+    if args.command == "reconcile":
+        fleet.reconcile()
+        print(json.dumps(state.entries, indent=2, sort_keys=True))
+        return 0
     if args.command == "once":
         count = fleet.tick()
         print("admitted {} job(s)".format(count))

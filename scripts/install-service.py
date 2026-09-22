@@ -7,6 +7,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 from personal_ci.config import Config
 
 
@@ -14,7 +16,7 @@ LABEL = "dev.personal-ci.runners"
 
 
 def main():
-    root = Path(__file__).resolve().parents[1]
+    root = ROOT
     config_path = root / "config.json"
     config = Config.load(config_path)
     if not config.token_file.exists():

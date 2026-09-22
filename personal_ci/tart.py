@@ -1,5 +1,6 @@
 """Run one GitHub job inside one owned Tart clone."""
 
+import json
 import os
 import subprocess
 import time
@@ -23,6 +24,18 @@ class TartProvider:
 
     def exists(self, name):
         return name in self.available_images()
+
+    def local_vms(self):
+        result = self.command("list", "--source", "local", "--format", "json")
+        return {item["Name"]: item["Running"] for item in json.loads(result.stdout)}
+
+    def stop_delete(self, name):
+        vms = self.local_vms()
+        if name not in vms:
+            return
+        if vms[name]:
+            self.command("stop", name, timeout=120)
+        self.command("delete", name, timeout=120)
 
     def _ready(self, name, process):
         deadline = time.monotonic() + 360

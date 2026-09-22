@@ -59,6 +59,34 @@ class FleetTests(unittest.TestCase):
             fleet.reap()
             self.assertEqual(State(directory).entries, {})
 
+    def test_reconcile_reclaims_only_completed_owned_clone(self):
+        config = Config.load(Path(__file__).resolve().parents[1] / "config.example.json")
+        with tempfile.TemporaryDirectory() as directory:
+            state = State(directory)
+            state.put(10, {"vm": "personal-ci-linux-10-a1", "repo": "my-web-app",
+                           "lane": "linux", "phase": "running"})
+            state.put(11, {"vm": "personal-ci-linux-11-b2", "repo": "my-web-app",
+                           "lane": "linux", "phase": "running"})
+            github = Mock()
+            github.job_status.side_effect = lambda repo, job_id: "completed" if job_id == 10 else "in_progress"
+            provider = Mock()
+            provider.exists.return_value = True
+            fleet = Fleet(config, github, provider, State(directory))
+            fleet.reconcile()
+            provider.stop_delete.assert_called_once_with("personal-ci-linux-10-a1")
+            self.assertEqual(set(State(directory).entries), {"11"})
+
+    def test_reconcile_leaves_unowned_name_untouched(self):
+        config = Config.load(Path(__file__).resolve().parents[1] / "config.example.json")
+        with tempfile.TemporaryDirectory() as directory:
+            state = State(directory)
+            state.put(10, {"vm": "another-vm", "repo": "my-web-app", "lane": "linux"})
+            provider = Mock()
+            fleet = Fleet(config, Mock(), provider, State(directory))
+            fleet.reconcile()
+            provider.exists.assert_not_called()
+            self.assertIn("10", State(directory).entries)
+
 
 if __name__ == "__main__":
     unittest.main()

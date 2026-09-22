@@ -108,3 +108,9 @@ class GitHubClient:
         if not config:
             raise RuntimeError("GitHub returned no JIT runner config")
         return config
+
+    def job_status(self, repository, job_id):
+        if repository not in self.repositories:
+            raise ValueError("repository is not allowed")
+        path = "/repos/{}/{}/actions/jobs/{}".format(self.owner, repository, job_id)
+        return self.transport("GET", path)["status"]
