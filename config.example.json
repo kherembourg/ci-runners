@@ -1,7 +1,10 @@
 {
   "owner": "kHerembourg",
   "repositories": ["my-web-app", "my-mobile-app"],
-  "token_file": "~/.config/personal-ci/github-token",
+  "github_app": {
+    "app_id": 12345,
+    "private_key_file": "~/.config/personal-ci/github-app.pem"
+  },
   "state_dir": "~/Library/Application Support/personal-ci",
   "tart_bin": "~/.local/opt/tart.app/Contents/MacOS/tart",
   "poll_seconds": 60,

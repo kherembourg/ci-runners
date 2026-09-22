@@ -1,0 +1,31 @@
+# Qualification evidence
+
+Updated 2026-09-22. This page distinguishes observed results from planned capabilities.
+
+## Host
+
+- Apple M1 Pro, 8 CPU cores, 32 GiB RAM, macOS 27.0.
+- AC power connected; system sleep on AC power is disabled.
+- Tart 2.37.0 from the official release archive, SHA-256 verified before extraction.
+- Softnet 0.23.0 installed from the official Homebrew tap and used for job-clone isolation.
+- Limit configured to two VMs, each 4 vCPUs and 8192 MiB RAM.
+
+## Linux lane
+
+- Ubuntu 24.04 ARM64 base: `ghcr.io/cirruslabs/ubuntu:24.04`.
+- GitHub Actions runner 2.337.0 ARM64 installed from an archive checked against its published SHA-256.
+- Docker Engine 29.1.3 from Ubuntu packages.
+- In a Softnet-isolated clone, `nproc` reported 4, `free -m` reported 7914 MiB total, GitHub HTTPS egress worked, and Docker ran an ARM64 `hello-world` container.
+- A local lifecycle test passed: clone, boot, stdin-only JIT handoff, runner execution, stop, and clone deletion.
+- [GitHub Actions Linux smoke run 35783619253](https://github.com/kherembourg/ci-runners/actions/runs/35783619253) passed its CPU, memory, and Docker steps. The ephemeral runner removed its registration; the clone was deleted afterward.
+
+## macOS lane
+
+- macOS ARM64 base: `ghcr.io/cirruslabs/macos-tahoe-xcode:26.5`.
+- The guest reported 4 vCPUs, 8589934592 bytes of memory, Xcode 26.5, and Swift 6.3.2.
+- GitHub Actions runner 2.337.0 ARM64 installed from an archive checked against its published SHA-256.
+- [GitHub Actions macOS smoke run 35785084902](https://github.com/kherembourg/ci-runners/actions/runs/35785084902) passed its CPU, memory, Xcode, and Swift steps. The ephemeral runner removed its registration; the clone was deleted afterward.
+
+## Capacity and unattended service
+
+Unit tests confirm that only two jobs are admitted while a third waits, and that an orphaned clone is reclaimed only after GitHub marks its job completed. A live mixed-lane overlap had one Linux and one macOS clone running at the same time; both [Linux](https://github.com/kherembourg/ci-runners/actions/runs/35785204958) and [macOS](https://github.com/kherembourg/ci-runners/actions/runs/35785209188) GitHub jobs passed, and both clones were deleted. The host service is not started until its repository-restricted GitHub App credential is installed.

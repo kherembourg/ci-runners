@@ -2,11 +2,13 @@
 
 Disposable GitHub Actions runners for an Apple Silicon Mac. A job runs in a fresh Tart VM and the VM is removed when the job ends. The Linux ARM64 lane has Docker for JavaScript, web, JVM, and Android build work. The macOS ARM64 lane has Xcode for Apple and Kotlin Multiplatform targets.
 
-**Status:** the Linux base has passed a local Docker smoke test. macOS image qualification and end-to-end GitHub Actions runs are pending; do not treat the labels as proven for project workloads yet.
+**Status:** both lanes passed real GitHub Actions smoke jobs, including Docker on Linux and Xcode on macOS. A simultaneous Linux/macOS run also passed. See the qualification ledger before using a lane for a new workload.
+
+See the [qualification ledger](docs/qualification.md) for observed host and workflow results.
 
 The fleet admits at most **two simultaneous VMs**, each with **4 vCPUs and 8 GiB RAM**. GitHub Actions remains the queue. A small host controller polls only named personal repositories and creates repository-level just-in-time runners. It admits only `push`, `workflow_dispatch`, and `schedule` jobs whose source repository matches the configured repository. Public fork pull requests are deliberately excluded.
 
-This repository contains no host credentials. Copy `config.example.json` to an ignored `config.json` on the Mac, set the selected repository names and an absolute credential-file path, and follow [operations](docs/operations.md). The controller credential needs Actions read and Administration write access to only the selected repositories. Keep it outside Git with mode `0600`.
+This repository contains no host credentials. Copy `config.example.json` to an ignored `config.json` on the Mac, set the selected repository names and your dedicated GitHub App ID, and follow [operations](docs/operations.md). Install the App only on selected personal repositories, with Actions read and Administration write permissions. Keep its private key outside Git with mode `0600`.
 
 Use `personal-ci-linux-arm64` for Linux work and `personal-ci-macos-arm64` for Xcode work. See [workflow examples](docs/workflows.md). The runner software and guest tools are installed into stopped base images; no registration token is baked into an image.
 

@@ -30,16 +30,16 @@ The Linux bootstrap installs Docker Engine and the ARM64 GitHub runner. The macO
 
 ## GitHub credential
 
-Use a fine-grained personal access token restricted to the selected personal repositories. It needs **Actions: read** to discover jobs and **Administration: read and write** to create repository-level JIT runners. Store it outside this checkout and restrict the file:
+Create a dedicated GitHub App owned by your personal account. Give it **Actions: read** and **Administration: read and write** repository permissions, with no subscribed events or webhook. Install it on **only the explicitly selected personal repositories**. Generate a private key and move the downloaded PEM to the Mac host, outside this checkout:
 
 ```sh
 mkdir -p ~/.config/personal-ci
 chmod 700 ~/.config/personal-ci
-# Write the token through a secure local input method, without echoing it in shell history.
-chmod 600 ~/.config/personal-ci/github-token
+# Move the GitHub-downloaded PEM into this directory without printing it.
+chmod 600 ~/.config/personal-ci/github-app.pem
 ```
 
-Set `repositories` and `token_file` in the ignored `config.json`. Do not use an account token that also grants access to unrelated repositories. The controller reads it at startup and never writes it into the VM image or logs.
+Set `repositories`, `github_app.app_id`, and `github_app.private_key_file` in the ignored `config.json`. The controller signs a short-lived JWT locally, requests an installation token scoped again to the configured repositories and only the two required permissions, and refreshes it in memory before expiry. Neither the PEM nor the installation token is written into a VM image or log. A fine-grained PAT remains an alternative by replacing `github_app` with `token_file`, but must be limited to the same repositories and permissions.
 
 ## Start and inspect
 

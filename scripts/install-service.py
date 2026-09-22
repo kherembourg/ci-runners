@@ -19,7 +19,8 @@ def main():
     root = ROOT
     config_path = root / "config.json"
     config = Config.load(config_path)
-    if not config.token_file.exists():
+    credential_file = config.token_file or config.github_app.private_key_file
+    if not credential_file.exists():
         raise RuntimeError("credential file is missing; service not installed")
     config.state_dir.mkdir(parents=True, exist_ok=True)
     agent_dir = Path.home() / "Library" / "LaunchAgents"

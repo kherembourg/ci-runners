@@ -18,7 +18,7 @@ The controller keeps an owned-instance ledger and a per-instance log outside dis
 
 ## Security and repository scope
 
-The public repository contains source, tests, image bootstrap scripts, workflow examples, docs, and non-secret config examples. A fine-grained credential with Actions read and Administration write on explicitly selected personal repositories stays on the Mac at mode 0600. The controller never reads or routes repositories outside its allowlist. Public-fork PR jobs are excluded. Workflow examples require a distinctive lane label and restrict permissions by default. No employer names, paths, identifiers, tokens, or code belong in this repository.
+The public repository contains source, tests, image bootstrap scripts, workflow examples, docs, and non-secret config examples. A dedicated GitHub App with Actions read and Administration write is installed only on explicitly selected personal repositories. Its private key stays on the Mac at mode 0600; installation tokens are short-lived and scoped again to the allowlist. The controller never reads or routes repositories outside its allowlist. Public-fork PR jobs are excluded. Workflow examples require a distinctive lane label and restrict permissions by default. No employer names, paths, identifiers, tokens, or code belong in this repository.
 
 ## Validation
 

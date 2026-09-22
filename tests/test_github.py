@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import Mock
 
 from personal_ci.config import Config, Lane
-from personal_ci.github import GitHubClient, HttpTransport, Job, read_token
+from personal_ci.github import AppTokenProvider, GitHubClient, HttpTransport, Job, read_token
 
 
 class GitHubTests(unittest.TestCase):
@@ -78,10 +78,50 @@ class GitHubTests(unittest.TestCase):
         data = json.loads(path.read_text())
         with tempfile.TemporaryDirectory() as directory:
             config_path = Path(directory) / "config.json"
+            del data["github_app"]
             data["token_file"] = str(Path(directory) / "token")
             config_path.write_text(json.dumps(data))
             with self.assertRaisesRegex(ValueError, "outside the repository"):
                 Config.load(config_path)
+
+    def test_config_requires_one_credential_method(self):
+        path = Path(__file__).resolve().parents[1] / "config.example.json"
+        data = json.loads(path.read_text())
+        with tempfile.TemporaryDirectory() as directory:
+            config_path = Path(directory) / "config.json"
+            data["token_file"] = "/tmp/token"
+            config_path.write_text(json.dumps(data))
+            with self.assertRaisesRegex(ValueError, "exactly one"):
+                Config.load(config_path)
+
+    def test_app_token_scopes_repositories_and_refreshes(self):
+        calls = []
+        tick = [100.0]
+
+        def request(method, path, payload, jwt):
+            calls.append((method, path, payload, jwt))
+            if method == "GET":
+                return {"id": 42, "account": {"login": "kHerembourg"}}
+            return {"token": "short-lived-" + str(len(calls))}
+
+        provider = AppTokenProvider("kHerembourg", ["demo", "ci-runners"], 123,
+                                    "/outside/key.pem", request=request,
+                                    signer=lambda message: b"signed", now=lambda: 1000,
+                                    monotonic=lambda: tick[0])
+        self.assertEqual(provider(), "short-lived-2")
+        self.assertEqual(provider(), "short-lived-2")
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(calls[1][2], {"repositories": ["demo", "ci-runners"],
+                                       "permissions": {"actions": "read", "administration": "write"}})
+        tick[0] += 3001
+        self.assertEqual(provider(), "short-lived-4")
+
+    def test_app_rejects_other_installation_owner(self):
+        provider = AppTokenProvider("kHerembourg", ["demo"], 123, "/outside/key.pem",
+                                    request=lambda *args: {"id": 42, "account": {"login": "other"}},
+                                    signer=lambda message: b"signed")
+        with self.assertRaisesRegex(RuntimeError, "owner"):
+            provider()
 
 
 if __name__ == "__main__":

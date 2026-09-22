@@ -3,6 +3,10 @@
 import json
 import os
 import stat
+import base64
+import subprocess
+import threading
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -32,27 +36,92 @@ def read_token(path):
     return token
 
 
+def _api_request(method, path, payload, token):
+    url = "https://api.github.com" + path
+    body = None if payload is None else json.dumps(payload).encode("utf-8")
+    request = urllib.request.Request(url, data=body, method=method, headers={
+        "Accept": "application/vnd.github+json",
+        "Authorization": "Bearer " + token,
+        "X-GitHub-Api-Version": "2022-11-28",
+        "User-Agent": "personal-ci-runners",
+    })
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            return json.load(response)
+    except urllib.error.HTTPError as error:
+        # Never print credentials or response bodies.
+        raise RuntimeError("GitHub API {} {} returned HTTP {}".format(
+            method, path.split("?")[0], error.code)) from None
+
+
+def _base64url(value):
+    return base64.urlsafe_b64encode(value).rstrip(b"=").decode("ascii")
+
+
+class AppTokenProvider:
+    """Refresh a repository-scoped GitHub App installation token in memory."""
+
+    def __init__(self, owner, repositories, app_id, private_key_file,
+                 request=_api_request, signer=None, now=time.time, monotonic=time.monotonic):
+        self.owner = owner
+        self.repositories = tuple(repositories)
+        self.app_id = app_id
+        self.private_key_file = Path(private_key_file)
+        self.request = request
+        self.signer = signer or self._sign
+        self.now = now
+        self.monotonic = monotonic
+        self.lock = threading.Lock()
+        self.token = None
+        self.expires_at = 0
+
+    def _sign(self, message):
+        metadata = self.private_key_file.stat()
+        if metadata.st_uid != os.getuid() or stat.S_IMODE(metadata.st_mode) & 0o077:
+            raise PermissionError("GitHub App private key must be owned by this user and mode 0600")
+        result = subprocess.run(["openssl", "dgst", "-sha256", "-sign",
+                                 str(self.private_key_file), "-binary"], input=message,
+                                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        if result.returncode:
+            raise RuntimeError("could not sign GitHub App JWT")
+        return result.stdout
+
+    def _jwt(self):
+        issued = int(self.now()) - 60
+        header = _base64url(b'{"alg":"RS256","typ":"JWT"}')
+        claims = _base64url(json.dumps({"iat": issued, "exp": issued + 540,
+                                        "iss": str(self.app_id)}, separators=(",", ":")).encode())
+        message = (header + "." + claims).encode("ascii")
+        return message.decode("ascii") + "." + _base64url(self.signer(message))
+
+    def __call__(self):
+        with self.lock:
+            if self.token and self.monotonic() < self.expires_at:
+                return self.token
+            jwt = self._jwt()
+            installation = self.request("GET", "/users/{}/installation".format(self.owner), None, jwt)
+            if installation.get("account", {}).get("login", "").lower() != self.owner.lower():
+                raise RuntimeError("GitHub App installation owner does not match configuration")
+            result = self.request("POST", "/app/installations/{}/access_tokens".format(
+                installation["id"]), {
+                    "repositories": list(self.repositories),
+                    "permissions": {"actions": "read", "administration": "write"},
+                }, jwt)
+            token = result.get("token")
+            if not token:
+                raise RuntimeError("GitHub App returned no installation token")
+            self.token = token
+            self.expires_at = self.monotonic() + 3000
+            return token
+
+
 class HttpTransport:
-    def __init__(self, token):
-        self.token = token
+    def __init__(self, credential):
+        self.credential = credential
 
     def __call__(self, method, path, payload=None):
-        url = "https://api.github.com" + path
-        body = None if payload is None else json.dumps(payload).encode("utf-8")
-        request = urllib.request.Request(url, data=body, method=method, headers={
-            "Accept": "application/vnd.github+json",
-            "Authorization": "Bearer " + self.token,
-            "X-GitHub-Api-Version": "2022-11-28",
-            "User-Agent": "personal-ci-runners",
-        })
-        try:
-            with urllib.request.urlopen(request, timeout=20) as response:
-                return json.load(response)
-        except urllib.error.HTTPError as error:
-            # Never print request headers, payloads, or response bodies: JIT
-            # responses contain short-lived runner credentials.
-            raise RuntimeError("GitHub API {} {} returned HTTP {}".format(
-                method, path.split("?")[0], error.code)) from None
+        token = self.credential() if callable(self.credential) else self.credential
+        return _api_request(method, path, payload, token)
 
 
 class GitHubClient:

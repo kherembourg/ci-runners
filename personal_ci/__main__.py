@@ -10,7 +10,7 @@ from pathlib import Path
 
 from .config import Config
 from .fleet import Fleet
-from .github import GitHubClient, HttpTransport, read_token
+from .github import AppTokenProvider, GitHubClient, HttpTransport, read_token
 from .state import State
 from .tart import TartProvider
 
@@ -26,24 +26,29 @@ def main(argv=None):
     if args.command == "doctor":
         installed = provider.available_images()
         expected = {lane.base_image for lane in config.lanes.values()}
+        credential_file = config.token_file or config.github_app.private_key_file
         report = {
             "tart": str(config.tart_bin),
             "images_present": sorted(installed & expected),
             "images_missing": sorted(expected - installed),
-            "token_file_present": config.token_file.exists(),
+            "credential_method": "github_app" if config.github_app else "fine_grained_pat",
+            "credential_file_present": credential_file.exists(),
             "max_vms": config.max_vms,
             "cpu_per_vm": config.cpu_per_vm,
             "memory_mb_per_vm": config.memory_mb_per_vm,
         }
         print(json.dumps(report, indent=2))
-        return 0 if not report["images_missing"] and report["token_file_present"] else 1
+        return 0 if not report["images_missing"] and report["credential_file_present"] else 1
     state = State(config.state_dir)
     if args.command == "status":
         print(json.dumps(state.entries, indent=2, sort_keys=True))
         return 0
     state.acquire()
+    credential = (AppTokenProvider(config.owner, config.repositories,
+                                   config.github_app.app_id, config.github_app.private_key_file)
+                  if config.github_app else read_token(config.token_file))
     github = GitHubClient(config.owner, config.repositories, config.lanes,
-                          HttpTransport(read_token(config.token_file)))
+                          HttpTransport(credential))
     fleet = Fleet(config, github, provider, state)
     if args.command == "reconcile":
         fleet.reconcile()

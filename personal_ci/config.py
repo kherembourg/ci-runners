@@ -4,7 +4,7 @@ import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict, Optional, Tuple
 
 
 NAME = re.compile(r"^[A-Za-z0-9_.-]+$")
@@ -18,10 +18,17 @@ class Lane:
 
 
 @dataclass(frozen=True)
+class GitHubApp:
+    app_id: int
+    private_key_file: Path
+
+
+@dataclass(frozen=True)
 class Config:
     owner: str
     repositories: Tuple[str, ...]
-    token_file: Path
+    token_file: Optional[Path]
+    github_app: Optional[GitHubApp]
     state_dir: Path
     tart_bin: Path
     poll_seconds: int
@@ -55,15 +62,26 @@ class Config:
             raise ValueError("poll_seconds must be between 10 and 3600")
         if data["minimum_free_disk_gb"] < 20:
             raise ValueError("minimum_free_disk_gb must be at least 20")
-        token_file = Path(data["token_file"]).expanduser().resolve()
+        has_token = "token_file" in data
+        has_app = "github_app" in data
+        if has_token == has_app:
+            raise ValueError("configure exactly one GitHub credential method")
+        token_file = Path(data["token_file"]).expanduser().resolve() if has_token else None
+        github_app = None
+        if has_app:
+            app = data["github_app"]
+            if not isinstance(app.get("app_id"), int) or app["app_id"] <= 0:
+                raise ValueError("github_app.app_id must be a positive integer")
+            github_app = GitHubApp(app["app_id"], Path(app["private_key_file"]).expanduser().resolve())
         state_dir = Path(data["state_dir"]).expanduser().resolve()
         tart_bin = Path(data["tart_bin"]).expanduser().resolve()
-        if not all(path.is_absolute() for path in (token_file, state_dir, tart_bin)):
-            raise ValueError("token_file, state_dir, and tart_bin must be absolute")
-        if token_file == state_dir or state_dir in token_file.parents:
+        credential_file = token_file or github_app.private_key_file
+        if not all(path.is_absolute() for path in (credential_file, state_dir, tart_bin)):
+            raise ValueError("credential, state_dir, and tart_bin must be absolute")
+        if credential_file == state_dir or state_dir in credential_file.parents:
             raise ValueError("credential must be outside runtime state")
-        if config_path.parent in token_file.parents:
+        if config_path.parent in credential_file.parents:
             raise ValueError("credential must be outside the repository checkout")
-        return cls(owner, repositories, token_file, state_dir, tart_bin,
+        return cls(owner, repositories, token_file, github_app, state_dir, tart_bin,
                    data["poll_seconds"], data["max_vms"], data["cpu_per_vm"],
                    data["memory_mb_per_vm"], data["minimum_free_disk_gb"], lanes)
