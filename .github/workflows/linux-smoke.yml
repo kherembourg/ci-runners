@@ -1,0 +1,14 @@
+name: Linux VM smoke
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: personal-ci-linux-arm64
+    timeout-minutes: 20
+    steps:
+      - run: uname -a
+      - run: test "$(nproc)" -eq 4
+      - run: test "$(awk '/MemTotal/ {print int($2 / 1024)}' /proc/meminfo)" -ge 7900
+      - run: docker run --rm hello-world

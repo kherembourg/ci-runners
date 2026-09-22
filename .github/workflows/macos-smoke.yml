@@ -1,0 +1,15 @@
+name: macOS VM smoke
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: personal-ci-macos-arm64
+    timeout-minutes: 30
+    steps:
+      - run: uname -a
+      - run: test "$(sysctl -n hw.ncpu)" -eq 4
+      - run: test "$(sysctl -n hw.memsize)" -ge 8500000000
+      - run: xcodebuild -version
+      - run: swift --version
