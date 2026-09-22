@@ -14,3 +14,4 @@ printf '%s  %s\n' "$runner_sha256" "/tmp/${archive}" | shasum -a 256 -c -
 tar -xzf "/tmp/${archive}" -C "$HOME/actions-runner"
 rm "/tmp/${archive}"
 "$HOME/actions-runner/bin/Runner.Listener" --version
+sync

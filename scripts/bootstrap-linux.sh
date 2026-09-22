@@ -20,3 +20,4 @@ rm "/tmp/${archive}"
 "$HOME/actions-runner/bin/installdependencies.sh" || sudo "$HOME/actions-runner/bin/installdependencies.sh"
 docker --version
 "$HOME/actions-runner/bin/Runner.Listener" --version
+sync
