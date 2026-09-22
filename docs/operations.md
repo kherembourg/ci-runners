@@ -30,7 +30,7 @@ The Linux bootstrap installs Docker Engine and the ARM64 GitHub runner. The macO
 
 ## GitHub credential
 
-Create a dedicated GitHub App owned by your personal account. Give it **Actions: read** and **Administration: read and write** repository permissions, with no subscribed events or webhook. Install it on **only the explicitly selected personal repositories**. Generate a private key and move the downloaded PEM to the Mac host, outside this checkout:
+Create a dedicated GitHub App owned by your personal account. Give it **Actions: read** and **Administration: read and write** repository permissions, with no subscribed events or webhook. Prefer installing it only on explicitly selected personal repositories. If you choose account-wide installation, the controller still requests each installation token for only the configured allowlist. Generate a private key and move the downloaded PEM to the Mac host, outside this checkout:
 
 ```sh
 mkdir -p ~/.config/personal-ci
