@@ -4,7 +4,7 @@ set -euo pipefail
 # Run once inside a stopped-base Ubuntu ARM64 Tart VM as the admin user.
 test "$(uname -m)" = aarch64
 sudo apt-get update
-sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl docker.io
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl docker.io unzip
 sudo systemctl enable --now docker
 sudo usermod -aG docker "$(id -un)"
 
