@@ -59,7 +59,7 @@ class FleetTests(unittest.TestCase):
             fleet.reap()
             self.assertEqual(State(directory).entries, {})
 
-    def test_reconcile_reclaims_only_completed_owned_clone(self):
+    def test_reconcile_reserves_existing_owned_clones(self):
         config = Config.load(Path(__file__).resolve().parents[1] / "config.example.json")
         with tempfile.TemporaryDirectory() as directory:
             state = State(directory)
@@ -68,13 +68,15 @@ class FleetTests(unittest.TestCase):
             state.put(11, {"vm": "personal-ci-linux-11-b2", "repo": "my-web-app",
                            "lane": "linux", "phase": "running"})
             github = Mock()
-            github.job_status.side_effect = lambda repo, job_id: "completed" if job_id == 10 else "in_progress"
             provider = Mock()
             provider.exists.return_value = True
             fleet = Fleet(config, github, provider, State(directory))
             fleet.reconcile()
-            provider.stop_delete.assert_called_once_with("personal-ci-linux-10-a1")
-            self.assertEqual(set(State(directory).entries), {"11"})
+            provider.stop_delete.assert_not_called()
+            github.job_status.assert_not_called()
+            self.assertEqual(set(State(directory).entries), {"10", "11"})
+            self.assertTrue(all(entry["phase"] == "needs_attention"
+                                for entry in State(directory).entries.values()))
 
     def test_reconcile_leaves_unowned_name_untouched(self):
         config = Config.load(Path(__file__).resolve().parents[1] / "config.example.json")

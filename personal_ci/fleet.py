@@ -44,7 +44,7 @@ class Fleet:
             del self.futures[job_id]
 
     def reconcile(self):
-        """Reclaim only known clones whose GitHub job is terminal."""
+        """Reserve existing clones after restart until their runner state is inspected."""
         for job_id, entry in list(self.state.entries.items()):
             if not job_id.isdecimal() or not isinstance(entry, dict):
                 logging.error("invalid ownership ledger entry %s; leaving untouched", job_id)
@@ -61,9 +61,10 @@ class Fleet:
                 if not self.provider.exists(name):
                     self.state.remove(job_id)
                     continue
-                if self.github.job_status(entry["repo"], numeric_job_id) == "completed":
-                    self.provider.stop_delete(name)
-                    self.state.remove(job_id)
+                if entry.get("phase") != "needs_attention":
+                    entry["phase"] = "needs_attention"
+                    self.state.put(job_id, entry)
+                    logging.warning("orphaned clone %s needs inspection before deletion", name)
             except Exception as error:
                 logging.error("could not reconcile job %s: %s", job_id, error)
 

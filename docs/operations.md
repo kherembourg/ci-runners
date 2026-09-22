@@ -54,7 +54,7 @@ python3 -m personal_ci --config config.json status
 
 The service writes `controller.out.log`, `controller.err.log`, `instances.json`, and per-VM logs under `state_dir`. A stopped controller does not kill a running job. After a crash, an owned instance in the ledger reserves capacity; inspect GitHub job state, the runner log, and `tart list` before cleaning it. Only delete a clone whose name and ownership match the ledger and whose job is terminal. Remove its ledger entry after deletion. No generic cleanup command deletes unknown VMs.
 
-`python3 -m personal_ci --config config.json reconcile` checks orphaned ledger entries against GitHub. It removes a missing clone or stops and deletes an owned clone whose job is completed. It leaves running or uncertain jobs alone; the service performs this check before admitting new work.
+`python3 -m personal_ci --config config.json reconcile` removes entries for missing clones and marks existing orphaned clones for inspection. A JIT runner can receive another matching queued job, so the job ID used when admitting the VM does not prove which job it ran. Inspect the runner log and GitHub before manually deleting a stopped orphan and removing its ledger entry. The service reserves its capacity in the meantime.
 
 Job clones boot with Tart's Softnet network isolation and without clipboard or host directory shares. Verify that the selected Tart release permits GitHub egress under Softnet before enabling the service.
 
