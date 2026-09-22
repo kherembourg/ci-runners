@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.local/
+config.json
+*.pem
+*.key
+*.token
+*.log
+runtime/
+.DS_Store

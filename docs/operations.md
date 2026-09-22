@@ -1,0 +1,55 @@
+# Operations
+
+## Host setup
+
+Use an Apple Silicon Mac with 32 GiB RAM and enough free disk for a Linux image, an Xcode image, two active clones, and a 40 GiB reserve. Keep it on AC power and prevent system sleep during CI hours. A LaunchAgent starts after the user logs in; it is not a pre-login daemon.
+
+Install Tart from the [official release](https://github.com/openai/tart/releases) or its Homebrew tap. Record and verify the archive SHA-256 before extracting it. Set `tart_bin` in the ignored `config.json` to the actual executable inside `tart.app`.
+
+Create separate, stopped base images. This example uses Ubuntu ARM64 and a macOS image with Xcode; choose exact supported versions and record their source digests in a private qualification log. `tart clone` may download tens of gigabytes.
+
+```sh
+tart clone ghcr.io/cirruslabs/ubuntu:24.04 personal-ci-linux-v1
+tart set personal-ci-linux-v1 --cpu 4 --memory 8192
+tart run --no-graphics personal-ci-linux-v1
+# In another terminal while the VM runs:
+tart exec -i personal-ci-linux-v1 /bin/bash -s < scripts/bootstrap-linux.sh
+tart stop personal-ci-linux-v1
+
+tart clone ghcr.io/cirruslabs/macos-tahoe-xcode:26.5 personal-ci-macos-v1
+tart set personal-ci-macos-v1 --cpu 4 --memory 8192
+tart run --no-graphics personal-ci-macos-v1
+# In another terminal while the VM runs:
+tart exec -i personal-ci-macos-v1 /bin/bash -s < scripts/bootstrap-macos.sh
+tart stop personal-ci-macos-v1
+```
+
+The Linux bootstrap installs Docker Engine and the ARM64 GitHub runner. The macOS bootstrap checks Xcode and installs the ARM64 runner. Both runner archives are pinned to SHA-256. Boot each base once after provisioning and check `nproc`/`free -m` or `sysctl -n hw.ncpu`/`sysctl -n hw.memsize`, Docker in Linux, and Xcode/Swift in macOS. Keep the prepared bases stopped. Never put a registration token in a base.
+
+## GitHub credential
+
+Use a fine-grained personal access token restricted to the selected personal repositories. It needs **Actions: read** to discover jobs and **Administration: read and write** to create repository-level JIT runners. Store it outside this checkout and restrict the file:
+
+```sh
+mkdir -p ~/.config/personal-ci
+chmod 700 ~/.config/personal-ci
+# Write the token through a secure local input method, without echoing it in shell history.
+chmod 600 ~/.config/personal-ci/github-token
+```
+
+Set `repositories` and `token_file` in the ignored `config.json`. Do not use an account token that also grants access to unrelated repositories. The controller reads it at startup and never writes it into the VM image or logs.
+
+## Start and inspect
+
+```sh
+python3 -m unittest discover -s tests -v
+python3 -m personal_ci --config config.json doctor
+python3 -m personal_ci --config config.json once
+python3 scripts/install-service.py
+launchctl print gui/$(id -u)/dev.personal-ci.runners
+python3 -m personal_ci --config config.json status
+```
+
+The service writes `controller.out.log`, `controller.err.log`, `instances.json`, and per-VM logs under `state_dir`. A stopped controller does not kill a running job. After a crash, an owned instance in the ledger reserves capacity; inspect GitHub job state, the runner log, and `tart list` before cleaning it. Only delete a clone whose name and ownership match the ledger and whose job is terminal. Remove its ledger entry after deletion. No generic cleanup command deletes unknown VMs.
+
+Use a distinct label for Linux and macOS. A queued job waits for available capacity; GitHub's documented limit for an unmatched self-hosted job is 24 hours. If the Mac sleeps or loses network, jobs may time out. Keep private repositories on the runner or use trusted-event restrictions for public repositories. Never run external PR code on this host.
