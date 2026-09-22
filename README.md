@@ -2,6 +2,8 @@
 
 Disposable GitHub Actions runners for an Apple Silicon Mac. A job runs in a fresh Tart VM and the VM is removed when the job ends. The Linux ARM64 lane has Docker for JavaScript, web, JVM, and Android build work. The macOS ARM64 lane has Xcode for Apple and Kotlin Multiplatform targets.
 
+**Status:** the Linux base has passed a local Docker smoke test. macOS image qualification and end-to-end GitHub Actions runs are pending; do not treat the labels as proven for project workloads yet.
+
 The fleet admits at most **two simultaneous VMs**, each with **4 vCPUs and 8 GiB RAM**. GitHub Actions remains the queue. A small host controller polls only named personal repositories and creates repository-level just-in-time runners. It admits only `push`, `workflow_dispatch`, and `schedule` jobs whose source repository matches the configured repository. Public fork pull requests are deliberately excluded.
 
 This repository contains no host credentials. Copy `config.example.json` to an ignored `config.json` on the Mac, set the selected repository names and an absolute credential-file path, and follow [operations](docs/operations.md). The controller credential needs Actions read and Administration write access to only the selected repositories. Keep it outside Git with mode `0600`.

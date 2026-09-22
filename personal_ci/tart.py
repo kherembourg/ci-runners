@@ -10,11 +10,13 @@ class TartProvider:
     def __init__(self, config):
         self.config = config
         self.bin = str(config.tart_bin)
+        self.environment = os.environ.copy()
+        self.environment["PATH"] = "/opt/homebrew/bin:" + self.environment.get("PATH", "")
 
     def command(self, *args, input_text=None, timeout=120):
         return subprocess.run([self.bin, *args], input=input_text, text=True,
                               stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                              timeout=timeout, check=True)
+                              timeout=timeout, check=True, env=self.environment)
 
     def available_images(self):
         return set(self.command("list", "--source", "local", "--quiet").stdout.splitlines())
@@ -48,8 +50,10 @@ class TartProvider:
                 cloned = True
                 self.command("set", name, "--cpu", str(self.config.cpu_per_vm),
                              "--memory", str(self.config.memory_mb_per_vm))
-                process = subprocess.Popen([self.bin, "run", "--no-graphics", "--no-clipboard", name],
-                                           stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT)
+                process = subprocess.Popen([self.bin, "run", "--no-graphics", "--no-clipboard",
+                                            "--net-softnet", name],
+                                           stdin=subprocess.DEVNULL, stdout=log,
+                                           stderr=subprocess.STDOUT, env=self.environment)
                 self._ready(name, process)
                 jit = jit_factory(job, name)
                 # Tart -i forwards stdin to the guest. The JIT config is never
@@ -58,7 +62,7 @@ class TartProvider:
                 result = subprocess.run([self.bin, "exec", "-i", name, "/bin/bash", "-lc",
                                          guest_script, "runner", lane.runner_dir],
                                         input=jit + "\n", text=True, stdout=log,
-                                        stderr=subprocess.STDOUT)
+                                        stderr=subprocess.STDOUT, env=self.environment)
                 if result.returncode:
                     raise RuntimeError("guest runner exited with status {}".format(result.returncode))
             finally:

@@ -6,6 +6,8 @@ Use an Apple Silicon Mac with 32 GiB RAM and enough free disk for a Linux image,
 
 Install Tart from the [official release](https://github.com/openai/tart/releases) or its Homebrew tap. Record and verify the archive SHA-256 before extracting it. Set `tart_bin` in the ignored `config.json` to the actual executable inside `tart.app`.
 
+Install [Softnet](https://github.com/openai/softnet) for guest network isolation (`brew install openai/tools/softnet`). Its binary must be found in `/opt/homebrew/bin`, owned by root, and have its SUID bit set as described by the project. This privilege lets Softnet create the VM network interface; verify its source and installation path before setting it. The controller refuses to start a job clone if Softnet is unavailable.
+
 Create separate, stopped base images. This example uses Ubuntu ARM64 and a macOS image with Xcode; choose exact supported versions and record their source digests in a private qualification log. `tart clone` may download tens of gigabytes.
 
 ```sh
@@ -51,5 +53,7 @@ python3 -m personal_ci --config config.json status
 ```
 
 The service writes `controller.out.log`, `controller.err.log`, `instances.json`, and per-VM logs under `state_dir`. A stopped controller does not kill a running job. After a crash, an owned instance in the ledger reserves capacity; inspect GitHub job state, the runner log, and `tart list` before cleaning it. Only delete a clone whose name and ownership match the ledger and whose job is terminal. Remove its ledger entry after deletion. No generic cleanup command deletes unknown VMs.
+
+Job clones boot with Tart's Softnet network isolation and without clipboard or host directory shares. Verify that the selected Tart release permits GitHub egress under Softnet before enabling the service.
 
 Use a distinct label for Linux and macOS. A queued job waits for available capacity; GitHub's documented limit for an unmatched self-hosted job is 24 hours. If the Mac sleeps or loses network, jobs may time out. Keep private repositories on the runner or use trusted-event restrictions for public repositories. Never run external PR code on this host.
