@@ -38,4 +38,4 @@ jobs:
       - run: ./gradlew :shared:compileKotlinIosArm64
 ```
 
-Replace the project commands with the real test/build commands and pin third-party actions to a commit SHA when promoting a workflow. The Linux VM is ARM64; a Docker image that exists only for x86-64 needs a different image or a separately qualified translation route. Apple compilation uses the macOS lane because Xcode does not run inside Linux.
+Replace the project commands with the real test/build commands and pin third-party actions to a commit SHA when promoting a workflow. The Linux VM is ARM64; a Docker image that exists only for x86-64 needs a different image or a separately qualified translation route. Route Android Gradle Plugin builds to the macOS ARM64 lane because its AAPT2 Linux artifact is x86-64. Apple compilation also uses the macOS lane because Xcode does not run inside Linux.

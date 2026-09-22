@@ -1,6 +1,6 @@
 # Personal CI runners
 
-Disposable GitHub Actions runners for an Apple Silicon Mac. A job runs in a fresh Tart VM and the VM is removed when the job ends. The Linux ARM64 lane has Docker for JavaScript, web, JVM, and Android build work. The macOS ARM64 lane has Xcode for Apple and Kotlin Multiplatform targets.
+Disposable GitHub Actions runners for an Apple Silicon Mac. A job runs in a fresh Tart VM and the VM is removed when the job ends. The Linux ARM64 lane has Docker for JavaScript, web, and JVM work. The macOS ARM64 lane has Xcode and native Android build tools for Apple, Android, and Kotlin Multiplatform targets.
 
 **Status:** both lanes passed real GitHub Actions smoke jobs, including Docker on Linux and Xcode on macOS. A simultaneous Linux/macOS run also passed. See the qualification ledger before using a lane for a new workload.
 
