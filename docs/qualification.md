@@ -28,6 +28,7 @@ Updated 2026-09-23. This page distinguishes observed results from planned capabi
 - [GitHub Actions macOS smoke run 35785084902](https://github.com/kherembourg/ci-runners/actions/runs/35785084902) passed its CPU, memory, Xcode, and Swift steps. The ephemeral runner removed its registration; the clone was deleted afterward.
 - An iPhone 17 Pro simulator booted in a disposable clone and reached terminal `bootstatus` in about 49 seconds. [KaMPKit iOS](https://github.com/kherembourg/KaMPKit/actions/runs/35786695244) and [lebref iOS](https://github.com/kherembourg/lebref/actions/runs/35786740613) subsequently passed project-specific Apple Silicon jobs.
 - [KaMPKit Android build](https://github.com/kherembourg/KaMPKit/actions/runs/35792825395) passed on a macOS ARM64 runner with native Android SDK tools.
+- [KaMPKit iOS build](https://github.com/kherembourg/KaMPKit/actions/runs/35792825410) also passed on the final workflow commit.
 - [lebref's complete CI](https://github.com/kherembourg/lebref/actions/runs/35793479459) passed server, web, desktop, iOS simulator, and Android jobs on the personal runners.
 - [finance's complete CI](https://github.com/kherembourg/finance/actions/runs/35793189870) passed server, Android tests and coverage, iOS simulator compilation, and Xcode simulator build on the personal runners.
 
