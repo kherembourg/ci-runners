@@ -1,5 +1,7 @@
 # Personal CI runners design
 
+> Historical design from 2026-09-22. The deployed system now also admits `pull_request` jobs in separate disposable PR lanes, including fork PRs. For current behavior, read the [README](../../../README.md) and [workflow map](../../workflows.md).
+
 ## Goal
 
 Run GitHub Actions jobs from an explicit list of personal repositories on an Apple Silicon MacBook Pro. A job runs in a disposable Tart VM. Linux jobs may use Docker for JavaScript, web, and JVM builds; macOS jobs use Xcode and native Android build tools for Apple and Android targets in Kotlin Multiplatform. The infrastructure repository is public, contains no credentials or private host details, and is independently written.
