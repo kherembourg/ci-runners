@@ -49,7 +49,7 @@ All four labels use **two base images**: one Linux and one macOS. The `-pr` suff
 | [`scripts/install-service.py`](scripts/install-service.py) | Installs the macOS service that restarts the controller after login. |
 | [`.github/workflows/`](.github/workflows) | Verifies this repository and contains two manual VM tests. |
 
-The [workflow guide](docs/workflows.md) shows **which example workflows run in which VM** and how to route your own jobs. The [operations guide](docs/operations.md) explains how to set up, check, and troubleshoot the service. The [qualification checklist](docs/qualification.md) shows what to verify on your own host before relying on the runners.
+The [architecture guide](docs/architecture.md) explains the controller, VM lifecycle, and trust boundaries. The [workflow guide](docs/workflows.md) shows **which example workflows run in which VM** and how to route your own jobs. The [operations guide](docs/operations.md) explains how to set up, check, and troubleshoot the service. The [qualification checklist](docs/qualification.md) shows what to verify on your own host before relying on the runners.
 
 ## Check the installation
 
