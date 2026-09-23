@@ -1,0 +1,37 @@
+{
+  "owner": "your-github-login",
+  "repositories": ["my-web-app", "my-mobile-app"],
+  "github_app": {
+    "app_id": 12345,
+    "private_key_file": "~/.config/personal-ci/github-app.pem"
+  },
+  "state_dir": "~/Library/Application Support/personal-ci",
+  "tart_bin": "~/.local/opt/tart.app/Contents/MacOS/tart",
+  "poll_seconds": 60,
+  "max_vms": 2,
+  "cpu_per_vm": 4,
+  "memory_mb_per_vm": 8192,
+  "minimum_free_disk_gb": 40,
+  "lanes": {
+    "linux": {
+      "label": "personal-ci-linux-arm64",
+      "base_image": "personal-ci-linux-v1",
+      "runner_dir": "/home/admin/actions-runner"
+    },
+    "macos": {
+      "label": "personal-ci-macos-arm64",
+      "base_image": "personal-ci-macos-v1",
+      "runner_dir": "/Users/admin/actions-runner"
+    },
+    "linux_pr": {
+      "label": "personal-ci-linux-arm64-pr",
+      "base_image": "personal-ci-linux-v1",
+      "runner_dir": "/home/admin/actions-runner"
+    },
+    "macos_pr": {
+      "label": "personal-ci-macos-arm64-pr",
+      "base_image": "personal-ci-macos-v1",
+      "runner_dir": "/Users/admin/actions-runner"
+    }
+  }
+}
