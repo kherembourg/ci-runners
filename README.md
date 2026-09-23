@@ -1,59 +1,59 @@
-# CI personnelle sur un Mac Apple Silicon
+# Personal CI on an Apple Silicon Mac
 
-Ce dépôt contient le **contrôleur de runners GitHub Actions** qui tourne sur un Mac M1 Pro. Il permet de lancer les tests et les builds de cinq dépôts personnels dans des machines virtuelles (VM) Linux ARM64 ou macOS ARM64. GitHub déclenche les workflows, affiche les résultats et conserve les artefacts ; **les calculs sont effectués sur le Mac**, pas sur un runner hébergé par GitHub.
+This repository contains a **GitHub Actions runner controller** for an Apple Silicon Mac. It runs jobs from repositories you choose in disposable Linux ARM64 or macOS ARM64 virtual machines (VMs). GitHub triggers workflows, displays results, and stores artifacts; **the jobs run on your Mac**, not on a GitHub-hosted runner.
 
-## Les mots utiles
+## Key terms
 
-- Un **workflow** est un fichier YAML dans `.github/workflows/` qui indique *quand* lancer la CI (push, pull request, horaire ou lancement manuel).
-- Un **job** est une partie du workflow, par exemple « tests web » ou « build iOS ». `runs-on` choisit la machine sur laquelle il s'exécute.
-- Un **runner** est le programme qui reçoit un job de GitHub et exécute ses étapes. Ici, un nouveau runner est créé dans une VM jetable pour chaque job.
-- Une **lane** est l'une des quatre étiquettes `runs-on` ci-dessous. Elle choisit Linux ou macOS et sépare les PR des autres événements.
+- A **workflow** is a YAML file in `.github/workflows/` that says *when* to run CI (on a push, pull request, schedule, or manual start).
+- A **job** is one part of a workflow, such as “web tests” or “iOS build.” `runs-on` chooses the machine where it runs.
+- A **runner** is the program that receives a job from GitHub and runs its steps. Here, a new runner is created in a disposable VM for each job.
+- A **lane** is one of the four `runs-on` labels below. It selects Linux or macOS and keeps PR jobs separate from other events.
 
-## Le trajet d'un job
+## How a job runs
 
 ```mermaid
 flowchart LR
-    A[Push, PR, horaire ou lancement manuel] --> B[GitHub Actions crée les jobs]
-    B --> C[Contrôleur sur le Mac]
-    C --> D{Étiquette runs-on}
-    D -->|Linux| E[VM Linux ARM64 jetable]
-    D -->|macOS| F[VM macOS ARM64 jetable]
-    E --> G[Tests, build ou Docker]
-    F --> H[Xcode, Android ou Kotlin]
-    G --> I[Résultat et artefacts sur GitHub]
+    A[Push, PR, schedule, or manual start] --> B[GitHub Actions creates jobs]
+    B --> C[Controller on the Mac]
+    C --> D{runs-on label}
+    D -->|Linux| E[Disposable Linux ARM64 VM]
+    D -->|macOS| F[Disposable macOS ARM64 VM]
+    E --> G[Tests, build, or Docker]
+    F --> H[Xcode, Android, or Kotlin]
+    G --> I[Results and artifacts on GitHub]
     H --> I
-    I --> J[Suppression de la VM]
+    I --> J[VM is deleted]
 ```
 
-Le contrôleur, démarré automatiquement après l'ouverture de session sur le Mac, interroge GitHub toutes les 60 secondes. Il ne regarde que les cinq dépôts autorisés dans sa configuration locale. Quand un job attend, il clone une image Tart préparée, démarre la VM avec **4 vCPU et 8 Gio de RAM**, y enregistre un runner temporaire, puis supprime normalement la VM à la fin. Il ne lance jamais plus de **deux VM en parallèle** ; les autres jobs restent dans la file GitHub. Le Mac doit être allumé, connecté au réseau et avoir une session utilisateur ouverte pour prendre de nouveaux jobs.
+The controller starts automatically after a user logs in to the Mac and checks GitHub at the interval in `config.json`. It only checks the repositories allowed in that local configuration. When a job is waiting, it clones a prepared Tart image, starts a VM with **4 vCPUs and 8 GiB of RAM**, registers a temporary runner in it, and normally deletes the VM when the job finishes. The current controller requires **two VM slots**; other jobs stay in the GitHub queue. The Mac must be powered on, connected to the network, and have a user logged in to accept new jobs.
 
-| Étiquette `runs-on` | Événement | Exécuté dans |
+| `runs-on` label | Event | Runs in |
 | --- | --- | --- |
-| `personal-ci-linux-arm64` | Push, horaire, manuel | VM Ubuntu ARM64 avec Docker |
-| `personal-ci-linux-arm64-pr` | Pull request | VM Ubuntu ARM64 jetable, file PR |
-| `personal-ci-macos-arm64` | Push, horaire, manuel | VM macOS ARM64 avec Xcode et outils Android |
-| `personal-ci-macos-arm64-pr` | Pull request | VM macOS ARM64 jetable, file PR |
+| `personal-ci-linux-arm64` | Push, schedule, manual | Ubuntu ARM64 VM with Docker |
+| `personal-ci-linux-arm64-pr` | Pull request | Disposable Ubuntu ARM64 VM, PR queue |
+| `personal-ci-macos-arm64` | Push, schedule, manual | macOS ARM64 VM with Xcode and Android tools |
+| `personal-ci-macos-arm64-pr` | Pull request | Disposable macOS ARM64 VM, PR queue |
 
-Les quatre étiquettes utilisent **deux images de base** : une Linux et une macOS. Le suffixe `-pr` n'indique pas un autre ordinateur ; il sépare les jobs PR des autres jobs. Les PR de forks sont admises dans des VM isolées, sans partage de dossier ou de presse-papiers avec l'hôte. Elles exécutent néanmoins du code non fiable : aucun secret de l'hôte n'est placé dans les images. Les permissions GitHub sont définies dans chaque workflow client ; certaines étapes, comme le commentaire de couverture de `finance`, demandent une écriture et doivent être examinées avant d'ouvrir davantage ces projets aux contributeurs externes. Les événements `pull_request_target` sont exclus.
+All four labels use **two base images**: one Linux and one macOS. The `-pr` suffix does not mean a different computer; it keeps PR jobs separate from other jobs. Fork PRs are allowed in isolated VMs, with no shared folders or clipboard access to the host. They still run untrusted code, so no host secrets should be placed in the images or passed to PR workflows. Set GitHub permissions in each project's workflow and review any job that needs write access. `pull_request_target` events are excluded.
 
-## Où trouver chaque élément
+## Where to find things
 
-| Fichier | Rôle |
+| File | Purpose |
 | --- | --- |
-| [`personal_ci/github.py`](personal_ci/github.py) | Repère les jobs en attente dans les dépôts autorisés et demande à GitHub un runner temporaire. |
-| [`personal_ci/fleet.py`](personal_ci/fleet.py) | Applique la limite de deux VM, réserve leur capacité et suit les jobs en cours. |
-| [`personal_ci/tart.py`](personal_ci/tart.py) | Clone, démarre puis supprime la VM de chaque job. |
-| [`personal_ci/config.py`](personal_ci/config.py) | Vérifie la configuration, les quatre lanes et le budget CPU/RAM. |
-| [`config.example.json`](config.example.json) | Modèle public ; la vraie configuration `config.json` est ignorée par Git. |
-| [`scripts/bootstrap-linux.sh`](scripts/bootstrap-linux.sh), [`scripts/bootstrap-macos.sh`](scripts/bootstrap-macos.sh) | Préparent les deux images de base, sans identifiant GitHub. |
-| [`scripts/install-service.py`](scripts/install-service.py) | Installe le service macOS qui relance le contrôleur après connexion. |
-| [`.github/workflows/`](.github/workflows) | Vérifie ce dépôt et contient deux tests manuels des VM. |
+| [`personal_ci/github.py`](personal_ci/github.py) | Finds queued jobs in allowed repositories and asks GitHub for a temporary runner. |
+| [`personal_ci/fleet.py`](personal_ci/fleet.py) | Enforces the two-VM limit, reserves capacity, and tracks active jobs. |
+| [`personal_ci/tart.py`](personal_ci/tart.py) | Clones, starts, and deletes each job's VM. |
+| [`personal_ci/config.py`](personal_ci/config.py) | Checks the configuration, four lanes, and CPU/RAM budget. |
+| [`config.example.json`](config.example.json) | Public template; the real `config.json` is ignored by Git. |
+| [`scripts/bootstrap-linux.sh`](scripts/bootstrap-linux.sh), [`scripts/bootstrap-macos.sh`](scripts/bootstrap-macos.sh) | Prepare the two base images without GitHub credentials. |
+| [`scripts/install-service.py`](scripts/install-service.py) | Installs the macOS service that restarts the controller after login. |
+| [`.github/workflows/`](.github/workflows) | Verifies this repository and contains two manual VM tests. |
 
-La [carte des workflows](docs/workflows.md) détaille **quel workflow lance quels jobs et dans quelle VM** pour les cinq dépôts. Le [guide d'exploitation](docs/operations.md) indique comment vérifier le service et traiter une panne. Le [journal de qualification](docs/qualification.md) sépare les tests réellement réussis des capacités non encore vérifiées.
+The [workflow guide](docs/workflows.md) shows **which example workflows run in which VM** and how to route your own jobs. The [operations guide](docs/operations.md) explains how to set up, check, and troubleshoot the service. The [qualification checklist](docs/qualification.md) shows what to verify on your own host before relying on the runners.
 
-## Vérifier l'installation
+## Check the installation
 
-Sur le Mac, depuis le dossier `~/ci-runners` :
+On the Mac, from the directory where you cloned this repository:
 
 ```sh
 python3 -m personal_ci --config config.json doctor
@@ -61,6 +61,6 @@ python3 -m personal_ci --config config.json status
 launchctl print gui/$(id -u)/dev.personal-ci.runners
 ```
 
-`doctor` vérifie la présence des images et de la clé GitHub App ; `status` affiche les VM réservées. Le dépôt public ne contient ni clé privée ni jeton. La clé de l'App est conservée sur le Mac, hors du dépôt, avec des permissions `0600`. L'App demande des jetons limités aux dépôts autorisés par la configuration locale, même si elle est installée plus largement sur le compte.
+`doctor` checks that the images and GitHub App key are present; `status` shows reserved VMs. The public repository contains no private key or token. The App's key is kept on the Mac, outside the repository, with `0600` permissions. The App requests tokens limited to repositories allowed by the local configuration, even if it is installed more broadly on the account.
 
-Ce projet est indépendant et sous licence MIT. Tart vient du [projet Tart](https://tart.run/) ; l'API des runners temporaires est décrite dans la [documentation GitHub](https://docs.github.com/en/actions/reference/runners/self-hosted-runners).
+This project is available under the MIT license. Tart comes from the [Tart project](https://tart.run/); GitHub's [documentation](https://docs.github.com/en/actions/reference/runners/self-hosted-runners) describes self-hosted runners.

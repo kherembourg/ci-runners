@@ -1,5 +1,5 @@
 {
-  "owner": "kHerembourg",
+  "owner": "your-github-login",
   "repositories": ["my-web-app", "my-mobile-app"],
   "github_app": {
     "app_id": 12345,

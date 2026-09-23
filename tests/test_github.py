@@ -29,17 +29,17 @@ class GitHubTests(unittest.TestCase):
                 label = "personal-ci-linux-arm64-pr" if run_id in (1, 4) else "personal-ci-linux-arm64"
                 return {"jobs": [{"id": run_id + 10, "status": "queued", "labels": [label]}]}
             return {"workflow_runs": [
-                {"id": 1, "event": "pull_request", "repository": {"full_name": "kHerembourg/demo"},
+                {"id": 1, "event": "pull_request", "repository": {"full_name": "example-user/demo"},
                  "head_repository": {"full_name": "attacker/fork"}},
-                {"id": 2, "event": "push", "head_repository": {"full_name": "kHerembourg/demo"}},
+                {"id": 2, "event": "push", "head_repository": {"full_name": "example-user/demo"}},
                 {"id": 3, "event": "push", "head_repository": {"full_name": "attacker/fork"}},
                 {"id": 4, "event": "pull_request", "repository": {"full_name": "other/repo"},
                  "head_repository": {"full_name": "attacker/fork"}},
-                {"id": 5, "event": "pull_request_target", "repository": {"full_name": "kHerembourg/demo"},
+                {"id": 5, "event": "pull_request_target", "repository": {"full_name": "example-user/demo"},
                  "head_repository": {"full_name": "attacker/fork"}},
             ] if "status=queued" in path else []}
 
-        jobs = GitHubClient("kHerembourg", ["demo"], self.lanes, fake).queued_jobs()
+        jobs = GitHubClient("example-user", ["demo"], self.lanes, fake).queued_jobs()
         self.assertEqual(jobs, [Job("demo", 1, 11, "linux_pr"), Job("demo", 2, 12, "linux")])
         self.assertEqual(sum("/jobs" in path for _, path, _ in calls), 2)
 
@@ -50,7 +50,7 @@ class GitHubTests(unittest.TestCase):
             seen.append((method, path, payload))
             return {"encoded_jit_config": "encoded"}
 
-        client = GitHubClient("kHerembourg", ["demo"], self.lanes, fake)
+        client = GitHubClient("example-user", ["demo"], self.lanes, fake)
         self.assertEqual(client.jit_config(Job("demo", 2, 9, "macos"), "runner-9"), "encoded")
         self.assertEqual(seen[0][2], {"name": "runner-9", "runner_group_id": 1,
                                       "labels": ["personal-ci-macos-arm64"], "work_folder": "_work"})
@@ -66,7 +66,7 @@ class GitHubTests(unittest.TestCase):
             self.assertEqual(read_token(path), "example")
 
     def test_job_status_rejects_other_repositories(self):
-        client = GitHubClient("kHerembourg", ["demo"], self.lanes, Mock())
+        client = GitHubClient("example-user", ["demo"], self.lanes, Mock())
         with self.assertRaises(ValueError):
             client.job_status("work-repo", 123)
 
@@ -110,10 +110,10 @@ class GitHubTests(unittest.TestCase):
         def request(method, path, payload, jwt):
             calls.append((method, path, payload, jwt))
             if method == "GET":
-                return {"id": 42, "account": {"login": "kHerembourg"}}
+                return {"id": 42, "account": {"login": "example-user"}}
             return {"token": "short-lived-" + str(len(calls))}
 
-        provider = AppTokenProvider("kHerembourg", ["demo", "ci-runners"], 123,
+        provider = AppTokenProvider("example-user", ["demo", "ci-runners"], 123,
                                     "/outside/key.pem", request=request,
                                     signer=lambda message: b"signed", now=lambda: 1000,
                                     monotonic=lambda: tick[0])
@@ -126,7 +126,7 @@ class GitHubTests(unittest.TestCase):
         self.assertEqual(provider(), "short-lived-4")
 
     def test_app_rejects_other_installation_owner(self):
-        provider = AppTokenProvider("kHerembourg", ["demo"], 123, "/outside/key.pem",
+        provider = AppTokenProvider("example-user", ["demo"], 123, "/outside/key.pem",
                                     request=lambda *args: {"id": 42, "account": {"login": "other"}},
                                     signer=lambda message: b"signed")
         with self.assertRaisesRegex(RuntimeError, "owner"):

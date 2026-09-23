@@ -1,8 +1,8 @@
-# Exploitation du runner personnel
+# Operating the personal runner
 
-Cette page sert à administrer le Mac. Pour comprendre le fonctionnement avant d'utiliser ces commandes, commencer par le [README](../README.md) et la [carte des workflows](workflows.md). Les commandes ci-dessous se lancent **sur le Mac qui héberge les VM**, dans `~/ci-runners`, sauf indication contraire.
+This page covers administration of the Mac. To understand how the system works before using these commands, start with the [README](../README.md) and [workflow guide](workflows.md). Unless noted otherwise, run the commands below **on the Mac that hosts the VMs**, from the directory where you cloned this repository.
 
-## Vérification quotidienne
+## Daily checks
 
 ```sh
 python3 -m personal_ci --config config.json doctor
@@ -10,41 +10,49 @@ python3 -m personal_ci --config config.json status
 launchctl print gui/$(id -u)/dev.personal-ci.runners
 ```
 
-- `doctor` vérifie que les deux images de base et le fichier de clé GitHub App existent. Il ne lance pas de build et ne garantit pas qu'un workflow applicatif passe.
-- `status` affiche le registre des VM réservées. `{}` signifie qu'aucun job n'occupe de VM ; ce n'est pas une erreur.
-- `launchctl` doit indiquer `state = running`. Le service ne démarre qu'après ouverture d'une session utilisateur sur le Mac.
-- Dans l'onglet **Actions** du dépôt concerné, un job en attente signifie généralement qu'il attend une VM libre. Deux jobs au maximum s'exécutent en parallèle.
+- `doctor` checks that both base images and the GitHub App key file exist. It does not run a build or guarantee that an application workflow will pass.
+- `status` shows the registry of reserved VMs. `{}` means no job is using a VM; it is not an error.
+- `launchctl` should show `state = running`. The service starts only after a user logs in to the Mac.
+- In the **Actions** tab for the relevant repository, a queued job usually means it is waiting for a free VM. At most two jobs run in parallel.
 
-Pour distinguer une panne de VM d'une panne propre à un projet, lancer manuellement [Linux VM smoke](../.github/workflows/linux-smoke.yml) ou [macOS VM smoke](../.github/workflows/macos-smoke.yml) depuis GitHub. Ces workflows vérifient CPU, mémoire et outils de base.
+To tell a VM failure from a project-specific failure, manually run [Linux VM smoke](../.github/workflows/linux-smoke.yml) or [macOS VM smoke](../.github/workflows/macos-smoke.yml) from GitHub. These workflows check the CPU, memory, and basic tools.
 
-## Où sont les données
+## Where data lives
 
-| Élément | Emplacement | Usage |
+| Item | Location | Use |
 | --- | --- | --- |
-| Code du contrôleur | `~/ci-runners` | Version Git synchronisée avec `main`. |
-| Configuration réelle | `~/ci-runners/config.json` | Liste des dépôts, images, étiquettes et limites ; fichier ignoré par Git. |
-| Clé privée GitHub App | `~/.config/personal-ci/github-app.pem` | Reste sur l'hôte, hors du dépôt, permissions `0600`. |
-| État et journaux | `~/Library/Application Support/personal-ci/` | `instances.json`, journaux du contrôleur et de chaque VM. |
-| Images de base Tart | Tart sur le Mac | `personal-ci-linux-v1` et `personal-ci-macos-v1`, normalement arrêtées. |
+| Controller code | Your repository checkout | Git checkout containing the controller. |
+| Actual configuration | `config.json` in that checkout | Repository list, images, labels, and limits; ignored by Git. |
+| GitHub App private key | `~/.config/personal-ci/github-app.pem` | Kept on the host, outside the repository, with `0600` permissions. |
+| State and logs | `~/Library/Application Support/personal-ci/` | `instances.json`, controller logs, and per-VM logs. |
+| Tart base images | Tart on the Mac | `personal-ci-linux-v1` and `personal-ci-macos-v1`, normally stopped. |
 
-Les clones créés pour les jobs sont supprimés en fin d'exécution normale. Si le contrôleur s'arrête brutalement, le registre conserve leur place et demande une inspection avant suppression. Ne jamais supprimer une VM inconnue par une commande globale.
+Clones created for jobs are deleted after normal completion. If the controller stops unexpectedly, the registry reserves their slots and requires inspection before deletion. Never delete an unknown VM with a global command.
 
-## Préparer un nouvel hôte
+## Prepare a new host
 
-Utiliser un Mac Apple Silicon avec 32 Gio de RAM, suffisamment d'espace pour les deux images et deux clones, et au moins **40 Gio libres** après création. Le Mac doit rester alimenté, connecté au réseau et sa session utilisateur ouverte pendant les heures de CI. Le service est un LaunchAgent, pas un daemon disponible avant connexion.
+Use an Apple Silicon Mac with enough CPU and memory for two 4-vCPU, 8-GiB guests and enough disk space for both base images and two clones. A 32-GiB host is a practical starting point. Keep at least the configured **40 GiB free** after setup. Keep the Mac powered on, connected to the network, and logged in during CI hours. The service is a LaunchAgent; it is unavailable before login.
 
-Installer [Tart](https://github.com/openai/tart/releases) depuis une source officielle. Si une archive est utilisée, vérifier sa somme SHA-256 avant extraction. Régler `tart_bin` dans le `config.json` ignoré vers le vrai exécutable. Dans les exemples suivants, `TART_BIN` représente ce chemin :
+Clone this repository, then create your local configuration from the public template:
+
+```sh
+cp config.example.json config.json
+```
+
+Set `owner` to your GitHub login, replace `repositories` with the repository names you want to run, set your GitHub App ID, and adjust the local paths for the App key and Tart executable. The controller currently requires `max_vms: 2`, `cpu_per_vm: 4`, and `memory_mb_per_vm: 8192`; those values are validated at startup. Keep `config.json` out of Git.
+
+Install [Tart](https://github.com/openai/tart/releases) from an official source. If you use an archive, verify its SHA-256 checksum before extracting it. Set `tart_bin` in the Git-ignored `config.json` to the actual executable. In the examples below, `TART_BIN` stands for that path:
 
 ```sh
 TART_BIN="$HOME/.local/opt/tart.app/Contents/MacOS/tart"
 "$TART_BIN" list
 ```
 
-Installer [Softnet](https://github.com/openai/softnet) pour isoler le réseau des clones (`brew install openai/tools/softnet`). Le binaire utilisé par Tart doit être sous `/opt/homebrew/bin`, appartenir à `root` et posséder le bit SUID décrit par le projet. Vérifier la source et le chemin avant de lui donner ce privilège. Sans Softnet, le démarrage des clones de jobs échoue.
+Install [Softnet](https://github.com/openai/softnet) to isolate the clones' network (`brew install openai/tools/softnet`). The binary Tart uses must be under `/opt/homebrew/bin`, owned by `root`, and have the SUID bit described by the project. Check its source and path before granting it this privilege. Without Softnet, job clones fail to start.
 
-Créer deux images de base **arrêtées**. Les versions ci-dessous correspondent aux images qualifiées ; le téléchargement macOS peut représenter des dizaines de gigaoctets. La commande `run` reste ouverte : lancer les commandes `exec` et `stop` dans **un deuxième terminal**.
+Create two **stopped** base images. The image versions below are examples; check their current availability and compatibility before use. The macOS download may be tens of gigabytes. The `run` command stays open: run the `exec` and `stop` commands in a **second terminal**.
 
-Linux, terminal A :
+Linux, terminal A:
 
 ```sh
 TART_BIN="$HOME/.local/opt/tart.app/Contents/MacOS/tart"
@@ -53,7 +61,7 @@ TART_BIN="$HOME/.local/opt/tart.app/Contents/MacOS/tart"
 "$TART_BIN" run --no-graphics personal-ci-linux-v1
 ```
 
-Linux, terminal B pendant que la VM tourne :
+Linux, terminal B while the VM is running:
 
 ```sh
 TART_BIN="$HOME/.local/opt/tart.app/Contents/MacOS/tart"
@@ -61,7 +69,7 @@ TART_BIN="$HOME/.local/opt/tart.app/Contents/MacOS/tart"
 "$TART_BIN" stop personal-ci-linux-v1
 ```
 
-macOS, terminal A :
+macOS, terminal A:
 
 ```sh
 TART_BIN="$HOME/.local/opt/tart.app/Contents/MacOS/tart"
@@ -70,7 +78,7 @@ TART_BIN="$HOME/.local/opt/tart.app/Contents/MacOS/tart"
 "$TART_BIN" run --no-graphics personal-ci-macos-v1
 ```
 
-macOS, terminal B pendant que la VM tourne :
+macOS, terminal B while the VM is running:
 
 ```sh
 TART_BIN="$HOME/.local/opt/tart.app/Contents/MacOS/tart"
@@ -78,24 +86,24 @@ TART_BIN="$HOME/.local/opt/tart.app/Contents/MacOS/tart"
 "$TART_BIN" stop personal-ci-macos-v1
 ```
 
-Le bootstrap Linux installe Docker et le runner ARM64 ; celui de macOS vérifie Xcode et installe le runner ARM64. Les archives des runners ont des SHA-256 épinglés dans les scripts. Redémarrer chaque image après préparation pour vérifier les 4 vCPU, la mémoire et les outils, puis la laisser arrêtée. **Ne jamais mettre de jeton ou d'identifiant de runner dans une image de base.**
+The Linux bootstrap installs Docker and the ARM64 runner; the macOS bootstrap checks Xcode and installs the ARM64 runner. The runner archives have SHA-256 checksums pinned in the scripts. Restart each image after setup to check the 4 vCPUs, memory, and tools, then leave it stopped. **Never put a token or runner ID in a base image.**
 
-## Accès à GitHub
+## GitHub access
 
-Une GitHub App dédiée doit avoir les permissions dépôt **Actions : lecture** et **Administration : lecture/écriture**. Elle n'a besoin ni de webhook ni d'événement souscrit : le contrôleur interroge l'API. La clé privée téléchargée est stockée sur le Mac :
+A dedicated GitHub App needs repository permissions **Actions: read** and **Administration: read/write**. It does not need a webhook or subscribed events; the controller polls the API. Store the downloaded private key on the Mac:
 
 ```sh
 mkdir -p ~/.config/personal-ci
 chmod 700 ~/.config/personal-ci
-# Déplacer la clé téléchargée ici, sans l'afficher dans le terminal.
+# Move the downloaded key here without displaying it in the terminal.
 chmod 600 ~/.config/personal-ci/github-app.pem
 ```
 
-Dans `config.json`, renseigner `repositories`, `github_app.app_id` et `github_app.private_key_file`. Même si l'App est installée sur tout le compte, le contrôleur demande un jeton d'installation limité aux seuls dépôts de `repositories` et à ces deux permissions. La clé et les jetons restent hors des images et des journaux. Le [modèle public](../config.example.json) ne contient aucun secret.
+In `config.json`, set `repositories`, `github_app.app_id`, and `github_app.private_key_file`. Even if the App is installed for the whole account, the controller requests an installation token limited to the repositories in `repositories` and those two permissions. The key and tokens stay out of images and logs. The [public template](../config.example.json) contains no secrets.
 
-## Démarrer ou diagnostiquer le service
+## Start or diagnose the service
 
-Avant la première installation :
+Before the first installation:
 
 ```sh
 python3 -m unittest discover -s tests -v
@@ -104,15 +112,15 @@ python3 -m personal_ci --config config.json once
 python3 scripts/install-service.py
 ```
 
-`once` admet les jobs disponibles une seule fois, attend leur fin, puis s'arrête. `install-service.py` installe le LaunchAgent **une seule fois** ; ne pas le relancer sur un hôte déjà installé. Pour inspecter un service existant :
+`once` admits available jobs one time, waits for them to finish, then exits. `install-service.py` installs the LaunchAgent **once**; do not run it again on a host where it is already installed. To inspect an existing service:
 
 ```sh
 launchctl print gui/$(id -u)/dev.personal-ci.runners
 python3 -m personal_ci --config config.json status
 ```
 
-Si un job reste en attente, vérifier dans cet ordre : Mac allumé et session ouverte, service `running`, deux places déjà occupées, espace libre (réserve de 40 Gio), étiquette `runs-on` du job, dépôt présent dans `repositories` et accès de l'App. Le contrôleur n'admet que `push`, `workflow_dispatch`, `schedule` et `pull_request` ; il ignore `pull_request_target`.
+If a job stays queued, check these in order: Mac is on and a user is logged in, service is `running`, both slots are already occupied, free disk space (40 GiB reserve), job's `runs-on` label, repository is in `repositories`, and App access. The controller admits only `push`, `workflow_dispatch`, `schedule`, and `pull_request`; it ignores `pull_request_target`.
 
-Si un job échoue, lire d'abord les étapes dans GitHub Actions. En cas de panne d'infrastructure, consulter `controller.err.log`, le journal de la VM indiqué par `instances.json` et la liste Tart. `python3 -m personal_ci --config config.json reconcile` retire les entrées dont le clone n'existe plus et marque les clones orphelins pour inspection. **Inspecter le job GitHub et le clone avant toute suppression manuelle** : le numéro de job utilisé lors de l'admission ne prouve pas à lui seul quel job le runner a reçu.
+If a job fails, first read its steps in GitHub Actions. For an infrastructure failure, check `controller.err.log`, the VM log listed in `instances.json`, and the Tart VM list. `python3 -m personal_ci --config config.json reconcile` removes entries for clones that no longer exist and marks orphaned clones for inspection. **Inspect the GitHub job and clone before any manual deletion**: the job number recorded at admission alone does not prove which job the runner received.
 
-Les clones utilisent Softnet, sans presse-papiers ni partage de dossier avec l'hôte. Les PR de forks restent du code non fiable ; ne pas leur exposer la clé de l'App, des secrets hôte ou des jetons GitHub en écriture.
+Clones use Softnet and do not share the host's clipboard or folders. Fork PRs still run untrusted code; do not expose the App key, host secrets, or GitHub write tokens to them.
