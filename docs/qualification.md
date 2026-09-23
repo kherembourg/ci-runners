@@ -2,6 +2,8 @@
 
 Updated 2026-09-23. This page distinguishes observed results from planned capabilities.
 
+The current five-repository deployment has passed its latest `main` workflows: [ci-runners Verify](https://github.com/kherembourg/ci-runners/actions/runs/35847620398), [RefletsDeBonheur CI](https://github.com/kherembourg/RefletsDeBonheur/actions/runs/35847687484) and [database policies](https://github.com/kherembourg/RefletsDeBonheur/actions/runs/35847687473), [lebref CI](https://github.com/kherembourg/lebref/actions/runs/35847688151), [finance CI](https://github.com/kherembourg/finance/actions/runs/35847688312), and [KaMPKit Android](https://github.com/kherembourg/KaMPKit/actions/runs/35847688477) and [iOS](https://github.com/kherembourg/KaMPKit/actions/runs/35847688587). These prove the trusted push lanes on the current workflows. The dedicated PR labels and controller admission were validated by unit tests and live queued-job discovery; the temporary PR was cancelled before its job executed, so a complete PR runner lifecycle was not yet observed.
+
 ## Host
 
 - Apple M1 Pro, 8 CPU cores, 32 GiB RAM, macOS 27.0.

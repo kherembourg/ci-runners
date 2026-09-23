@@ -1,5 +1,7 @@
 # Personal CI runners implementation plan
 
+> Historical implementation plan from 2026-09-22. The current runner architecture and workflow routing are documented in the [README](../../../README.md) and [workflow map](../../workflows.md).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build and qualify a public, independent GitHub Actions runner fleet on one Apple Silicon Mac with disposable Linux and macOS VMs.
