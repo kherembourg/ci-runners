@@ -49,13 +49,17 @@ class Config:
         if any(not NAME.fullmatch(repo) for repo in repositories):
             raise ValueError("invalid repository name")
         lanes = {name: Lane(**entry) for name, entry in data["lanes"].items()}
-        if set(lanes) != {"linux", "macos"}:
-            raise ValueError("exactly linux and macos lanes are required")
+        if set(lanes) != {"linux", "macos", "linux_pr", "macos_pr"}:
+            raise ValueError("exactly linux, macos, linux_pr and macos_pr lanes are required")
         if any(not NAME.fullmatch(lane.label) or not NAME.fullmatch(lane.base_image)
                or not lane.runner_dir.startswith("/") for lane in lanes.values()):
             raise ValueError("invalid lane configuration")
-        if lanes["linux"].label == lanes["macos"].label:
+        if len({lane.label for lane in lanes.values()}) != len(lanes):
             raise ValueError("lane labels must differ")
+        for platform in ("linux", "macos"):
+            if (lanes[platform].base_image != lanes[platform + "_pr"].base_image or
+                    lanes[platform].runner_dir != lanes[platform + "_pr"].runner_dir):
+                raise ValueError("PR and trusted lanes must use the same disposable base image")
         if (data["max_vms"], data["cpu_per_vm"], data["memory_mb_per_vm"]) != (2, 4, 8192):
             raise ValueError("VM budget must be two 4-vCPU, 8192-MiB guests")
         if not 10 <= data["poll_seconds"] <= 3600:

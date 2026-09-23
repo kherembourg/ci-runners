@@ -6,11 +6,11 @@ Disposable GitHub Actions runners for an Apple Silicon Mac. A job runs in a fres
 
 See the [qualification ledger](docs/qualification.md) for observed host and workflow results.
 
-The fleet admits at most **two simultaneous VMs**, each with **4 vCPUs and 8 GiB RAM**. GitHub Actions remains the queue. A small host controller polls only named personal repositories and creates repository-level just-in-time runners. It admits only `push`, `workflow_dispatch`, and `schedule` jobs whose source repository matches the configured repository. Public fork pull requests are deliberately excluded.
+The fleet admits at most **two simultaneous VMs**, each with **4 vCPUs and 8 GiB RAM**. GitHub Actions remains the queue. A small host controller polls only named personal repositories and creates repository-level just-in-time runners. Trusted `push`, `workflow_dispatch`, and `schedule` jobs use the standard lane labels; `pull_request` jobs use separate PR labels, including for fork PRs. `pull_request_target` is never admitted.
 
 This repository contains no host credentials. Copy `config.example.json` to an ignored `config.json` on the Mac, set the selected repository names and your dedicated GitHub App ID, and follow [operations](docs/operations.md). Give the App Actions read and Administration write permissions; the controller requests installation tokens for only its configured repositories. Keep the private key outside Git with mode `0600`.
 
-Use `personal-ci-linux-arm64` for Linux work and `personal-ci-macos-arm64` for Xcode work. See [workflow examples](docs/workflows.md). The runner software and guest tools are installed into stopped base images; no registration token is baked into an image.
+Use `personal-ci-linux-arm64` for trusted Linux work and `personal-ci-macos-arm64` for trusted Xcode work. PR jobs use `personal-ci-linux-arm64-pr` and `personal-ci-macos-arm64-pr`. See [workflow examples](docs/workflows.md). Every job runs in a disposable VM without host shares; no registration token is baked into an image. Fork PR code is untrusted and still carries VM escape and network abuse risk, so keep host credentials outside the guest and do not grant PR jobs secrets or write permissions.
 
 ```sh
 python3 -m unittest discover -s tests -v

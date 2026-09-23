@@ -22,6 +22,16 @@
       "label": "personal-ci-macos-arm64",
       "base_image": "personal-ci-macos-v1",
       "runner_dir": "/Users/admin/actions-runner"
+    },
+    "linux_pr": {
+      "label": "personal-ci-linux-arm64-pr",
+      "base_image": "personal-ci-linux-v1",
+      "runner_dir": "/home/admin/actions-runner"
+    },
+    "macos_pr": {
+      "label": "personal-ci-macos-arm64-pr",
+      "base_image": "personal-ci-macos-v1",
+      "runner_dir": "/Users/admin/actions-runner"
     }
   }
 }

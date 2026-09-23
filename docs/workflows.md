@@ -1,6 +1,8 @@
 # Workflow routing
 
-The controller only accepts `push`, `workflow_dispatch`, and `schedule` jobs from a configured repository. Keep PR validation on GitHub-hosted runners. Use a lane label in each selected repository's own workflow.
+The controller accepts trusted `push`, `workflow_dispatch`, and `schedule` jobs from configured repositories, plus `pull_request` jobs from those repositories and their forks. PR jobs use separate lane labels and disposable VMs. `pull_request_target` is excluded. Use a lane label in each selected repository's own workflow.
+
+For a workflow that runs on both push and PR, select the PR lane with `runs-on: ${{ github.event_name == 'pull_request' && 'personal-ci-linux-arm64-pr' || 'personal-ci-linux-arm64' }}`. Replace `linux` with `macos` for Xcode and Android Gradle Plugin builds. Keep PR permissions read-only and never pass secrets to code checked out from a fork.
 
 Linux example for a Node project:
 

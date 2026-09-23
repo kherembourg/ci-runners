@@ -58,4 +58,4 @@ The service writes `controller.out.log`, `controller.err.log`, `instances.json`,
 
 Job clones boot with Tart's Softnet network isolation and without clipboard or host directory shares. Verify that the selected Tart release permits GitHub egress under Softnet before enabling the service.
 
-Use a distinct label for Linux and macOS. A queued job waits for available capacity; GitHub's documented limit for an unmatched self-hosted job is 24 hours. If the Mac sleeps or loses network, jobs may time out. Keep private repositories on the runner or use trusted-event restrictions for public repositories. Never run external PR code on this host.
+Use distinct labels for trusted Linux, trusted macOS, Linux PR, and macOS PR jobs. A queued job waits for available capacity; GitHub's documented limit for an unmatched self-hosted job is 24 hours. If the Mac sleeps or loses network, jobs may time out. Fork PRs run in isolated disposable VMs but remain untrusted code: do not expose host shares, credentials, or write-capable tokens to them. Keep `pull_request_target` jobs off this fleet.

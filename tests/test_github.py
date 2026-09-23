@@ -15,24 +15,33 @@ class GitHubTests(unittest.TestCase):
         self.lanes = {
             "linux": Lane("personal-ci-linux-arm64", "linux-base", "/runner"),
             "macos": Lane("personal-ci-macos-arm64", "mac-base", "/runner"),
+            "linux_pr": Lane("personal-ci-linux-arm64-pr", "linux-base", "/runner"),
+            "macos_pr": Lane("personal-ci-macos-arm64-pr", "mac-base", "/runner"),
         }
 
-    def test_filters_fork_and_untrusted_events(self):
+    def test_separates_trusted_and_pull_request_lanes(self):
         calls = []
 
         def fake(method, path, payload=None):
             calls.append((method, path, payload))
             if "/runs/" in path and "/jobs" in path:
-                return {"jobs": [{"id": 9, "status": "queued", "labels": ["personal-ci-linux-arm64"]}]}
+                run_id = int(path.split("/runs/")[1].split("/")[0])
+                label = "personal-ci-linux-arm64-pr" if run_id in (1, 4) else "personal-ci-linux-arm64"
+                return {"jobs": [{"id": run_id + 10, "status": "queued", "labels": [label]}]}
             return {"workflow_runs": [
-                {"id": 1, "event": "pull_request", "head_repository": {"full_name": "attacker/fork"}},
+                {"id": 1, "event": "pull_request", "repository": {"full_name": "kHerembourg/demo"},
+                 "head_repository": {"full_name": "attacker/fork"}},
                 {"id": 2, "event": "push", "head_repository": {"full_name": "kHerembourg/demo"}},
                 {"id": 3, "event": "push", "head_repository": {"full_name": "attacker/fork"}},
+                {"id": 4, "event": "pull_request", "repository": {"full_name": "other/repo"},
+                 "head_repository": {"full_name": "attacker/fork"}},
+                {"id": 5, "event": "pull_request_target", "repository": {"full_name": "kHerembourg/demo"},
+                 "head_repository": {"full_name": "attacker/fork"}},
             ] if "status=queued" in path else []}
 
         jobs = GitHubClient("kHerembourg", ["demo"], self.lanes, fake).queued_jobs()
-        self.assertEqual(jobs, [Job("demo", 2, 9, "linux")])
-        self.assertEqual(sum("/jobs" in path for _, path, _ in calls), 1)
+        self.assertEqual(jobs, [Job("demo", 1, 11, "linux_pr"), Job("demo", 2, 12, "linux")])
+        self.assertEqual(sum("/jobs" in path for _, path, _ in calls), 2)
 
     def test_jit_uses_single_lane_label(self):
         seen = []

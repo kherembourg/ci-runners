@@ -1,4 +1,4 @@
-"""Small GitHub REST client for trusted repository jobs and JIT runners."""
+"""Small GitHub REST client for allowlisted repository jobs and JIT runners."""
 
 import json
 import os
@@ -15,6 +15,7 @@ from pathlib import Path
 
 
 TRUSTED_EVENTS = frozenset(("push", "workflow_dispatch", "schedule"))
+PR_EVENT = "pull_request"
 
 
 @dataclass(frozen=True)
@@ -148,17 +149,24 @@ class GitHubClient:
             for status in ("queued", "in_progress"):
                 runs_path = root + "/runs?status=" + status
                 for run in self._pages(runs_path, "workflow_runs"):
-                    if run.get("event") not in TRUSTED_EVENTS:
-                        continue
+                    event = run.get("event")
                     head = run.get("head_repository") or {}
-                    if head.get("full_name", "").lower() != full_name.lower():
+                    if event == PR_EVENT:
+                        base = run.get("repository") or {}
+                        if (base.get("full_name", "").lower() != full_name.lower() or
+                                not head.get("full_name")):
+                            continue
+                    elif (event not in TRUSTED_EVENTS or
+                          head.get("full_name", "").lower() != full_name.lower()):
                         continue
                     jobs_path = root + "/runs/{}/jobs?filter=latest".format(run["id"])
                     for job in self._pages(jobs_path, "jobs"):
                         if job.get("status") != "queued":
                             continue
                         labels = set(job.get("labels") or ())
-                        matching = [name for name, lane in self.lanes.items() if lane.label in labels]
+                        suffix = "_pr" if event == PR_EVENT else ""
+                        matching = [name for name, lane in self.lanes.items()
+                                    if name.endswith("_pr") == bool(suffix) and lane.label in labels]
                         if len(matching) == 1:
                             found[job["id"]] = Job(repository, run["id"], job["id"], matching[0])
         return list(found.values())
