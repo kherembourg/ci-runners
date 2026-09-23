@@ -6,7 +6,7 @@ permissions:
   contents: read
 jobs:
   unit:
-    runs-on: ${{ github.event_name == 'pull_request' && 'personal-ci-linux-arm64-pr' || 'personal-ci-linux-arm64' }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - run: python3 -m unittest discover -s tests -v

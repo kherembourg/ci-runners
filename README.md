@@ -1,6 +1,6 @@
 # Personal CI on an Apple Silicon Mac
 
-This repository contains a **GitHub Actions runner controller** for an Apple Silicon Mac. It runs jobs from repositories you choose in disposable Linux ARM64 or macOS ARM64 virtual machines (VMs). GitHub triggers workflows, displays results, and stores artifacts; **the jobs run on your Mac**, not on a GitHub-hosted runner.
+This repository contains a **GitHub Actions runner controller** for an Apple Silicon Mac. It runs jobs from repositories you choose in disposable Linux ARM64 or macOS ARM64 virtual machines (VMs). GitHub triggers workflows, displays results, and stores artifacts; **the monitored repositories' jobs run on your Mac**. This controller's own `Verify` workflow runs on a free GitHub-hosted runner; the two manually dispatched VM smoke tests still run on the Mac.
 
 ## Key terms
 
